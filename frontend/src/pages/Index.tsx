@@ -1,5 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
-import { flushSync } from 'react-dom';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Task, ParsedTask } from '@/types/task';
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/api/tasks';
 import { useParseVoiceNote } from '@/api/voice';
@@ -16,8 +15,6 @@ import { Plus, Search, Loader2 } from 'lucide-react';
 import { parsedResponseToParsedTask, parsedTaskToCreatePayload, taskToCreatePayload } from '@/lib/mappers';
 
 const Index = () => {
-  // We read tasks directly from React Query; no separate local copy
-  // so that optimistic updates and refetches stay in sync.
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Task['status'] | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<Task['priority'] | 'all'>('all');
@@ -29,16 +26,23 @@ const Index = () => {
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [isCreatingFromVoice, setIsCreatingFromVoice] = useState(false);
   const [savingIds, setSavingIds] = useState<string[]>([]);
-  const [optimisticStatusById, setOptimisticStatusById] = useState<Record<string, Task['status']>>({});
+  const [tasks, setTasks] = useState<Task[]>([]);
   const { toast } = useToast();
 
   const { data: tasksData, isLoading } = useTasks();
+
+  // Keep a local copy of tasks so drag-and-drop updates are instant,
+  // independent of network latency.
+  useEffect(() => {
+    if (tasksData) {
+      setTasks(tasksData as Task[]);
+    }
+  }, [tasksData]);
+
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
   const parseVoiceMutation = useParseVoiceNote();
-
-  const tasks = tasksData ?? [];
 
   const handleVoiceTranscript = async (voiceTranscript: string) => {
     setIsProcessingVoice(true);
@@ -98,6 +102,7 @@ const Index = () => {
       toast({ title: 'Success', description: 'Task deleted successfully' });
     } catch (error: any) {
       toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
+      throw error;
     }
   }, [deleteTaskMutation, toast]);
 
@@ -107,11 +112,22 @@ const Index = () => {
   }, []);
 
   const handleStatusChange = useCallback((id: string, newStatus: Task['status']) => {
-    void updateTask(id, { status: newStatus });
+    // Optimistic local update so the column changes immediately when using the menu
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+    // Start per-card/global loader right away
+    setSavingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+
+    void (async () => {
+      try {
+        await updateTask(id, { status: newStatus });
+      } finally {
+        setSavingIds((prev) => prev.filter((sid) => sid !== id));
+      }
+    })();
   }, [updateTask]);
 
   const handleDeleteCallback = useCallback((id: string) => {
-    void deleteTask(id);
+    return deleteTask(id);
   }, [deleteTask]);
 
   const handleSaveTask = async (taskData: Partial<Task>) => {
@@ -130,17 +146,16 @@ const Index = () => {
     setEditingTask(null);
   };
 
-  // Apply local optimistic status overrides so drag & drop feels instant
+  // Normalize ids to strings for DnD, but otherwise just use local tasks state.
   const effectiveTasks = useMemo(() => {
-    return (tasks ?? []).map((task) => {
+    return tasks.map((task) => {
       const id = String(task.id);
       return {
         ...task,
         id,
-        status: optimisticStatusById[id] ?? task.status,
       } as Task;
     });
-  }, [tasks, optimisticStatusById]);
+  }, [tasks]);
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -165,33 +180,22 @@ const Index = () => {
 
     const newStatus = destination.droppableId as 'to_do' | 'in_progress' | 'done';
 
-    // Immediately move the card visually via local optimistic status override
-    setOptimisticStatusById((prev) => ({
-      ...prev,
-      [draggableId]: newStatus,
-    }));
+    // 1) Instant local update so the card moves immediately
+    setTasks((prev) =>
+      prev.map((t) => (t.id === draggableId ? { ...t, status: newStatus } : t)),
+    );
 
-    // Show saving indicator for this card immediately on drop
+    // 2) Show saving indicator for this card immediately on drop
     setSavingIds((prev) => (prev.includes(draggableId) ? prev : [...prev, draggableId]));
 
-      // Fire-and-forget mutation: we already updated UI optimistically above.
-      // Map frontend status -> backend enum value and call mutation without awaiting.
-      const mappedStatus = newStatus === 'in_progress' ? 'IN_PROGRESS' : newStatus === 'done' ? 'DONE' : 'PENDING';
-      updateTaskMutation.mutate({ id: draggableId, data: { status: mappedStatus } }, {
-        onError: () => {
-          // react-query onError in the hook will rollback cache; show toast handled there
-        },
-        onSettled: () => {
-          // clear saving indicator when done
-          flushSync(() => {
-            setSavingIds((prev) => prev.filter((id) => id !== draggableId));
-            setOptimisticStatusById((prev) => {
-              const { [draggableId]: _removed, ...rest } = prev;
-              return rest;
-            });
-          });
-        },
-      });
+    // 3) Save in the background using the existing updateTask helper (handles
+    //    backend enum mapping + toasts). When it finishes (success or error),
+    //    clear the saving indicator.
+    try {
+      await updateTask(draggableId, { status: newStatus });
+    } finally {
+      setSavingIds((prev) => prev.filter((id) => id !== draggableId));
+    }
   };
 
   const columnTitles = {
