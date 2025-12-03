@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 217 33% 15%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 217 33% 15%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 271 91% 65%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 32% 20%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 189 94% 50%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 32% 22%;
+    --input: 217 32% 18%;
+    --ring: 271 91% 65%;
+
+    --radius: 1rem;
+
+    /* Priority colors */
+    --priority-high: 0 84% 60%;
+    --priority-medium: 38 92% 50%;
+    --priority-low: 142 76% 36%;
+
+    /* Status colors */
+    --status-todo: 217 32% 25%;
+    --status-progress: 221 83% 53%;
+    --status-done: 142 76% 36%;
+
+    /* Vibrant gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(271 91% 65%) 0%, hsl(189 94% 50%) 50%, hsl(142 76% 50%) 100%);
+    --gradient-voice: linear-gradient(135deg, hsl(271 91% 65%) 0%, hsl(189 94% 50%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(217 33% 15% / 0.8) 0%, hsl(217 33% 18% / 0.6) 100%);
+    --gradient-button: linear-gradient(135deg, hsl(271 91% 65%) 0%, hsl(221 83% 60%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(189 94% 50%) 0%, hsl(142 76% 50%) 100%);
+
+    /* Stunning shadows */
+    --shadow-glow-primary: 0 0 40px hsl(271 91% 65% / 0.4);
+    --shadow-glow-accent: 0 0 40px hsl(189 94% 50% / 0.4);
+    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.4);
+    --shadow-card-hover: 0 12px 48px hsl(271 91% 65% / 0.3);
+
+    /* Smooth animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
+@layer utilities {
+  .animate-wave {
+    animation: wave 900ms ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+
+  @keyframes wave {
+    0% { transform: scaleY(0.35); }
+    25% { transform: scaleY(1); }
+    50% { transform: scaleY(0.45); }
+    75% { transform: scaleY(0.9); }
+    100% { transform: scaleY(0.35); }
+  }
+}
+
+@layer utilities {
+  .animate-modal-open {
+    animation: modal-open 220ms cubic-bezier(.16,.8,.28,1) both;
+  }
+
+  @keyframes modal-open {
+    from { opacity: 0; transform: translateY(8px) scale(.995); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
