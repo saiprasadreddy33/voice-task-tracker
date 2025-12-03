@@ -16,6 +16,9 @@ export const VoiceInput = ({ onTranscript, isProcessing }: VoiceInputProps) => {
   const [interimTranscript, setInterimTranscript] = useState('');
   const [finalTranscript, setFinalTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
+  // Refs to avoid stale state inside SpeechRecognition event handlers
+  const finalRef = useRef('');
+  const interimRef = useRef('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,6 +28,8 @@ export const VoiceInput = ({ onTranscript, isProcessing }: VoiceInputProps) => {
       setIsListening(false);
       setInterimTranscript('');
       setFinalTranscript('');
+      finalRef.current = '';
+      interimRef.current = '';
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch {}
         recognitionRef.current = null;
@@ -64,6 +69,9 @@ export const VoiceInput = ({ onTranscript, isProcessing }: VoiceInputProps) => {
         }
         setInterimTranscript(interim);
         setFinalTranscript(localFinal);
+        // keep refs in sync so onend sees the latest transcript
+        interimRef.current = interim;
+        finalRef.current = localFinal;
       };
 
       recognition.onerror = (e: any) => {
@@ -76,8 +84,9 @@ export const VoiceInput = ({ onTranscript, isProcessing }: VoiceInputProps) => {
       recognition.onend = () => {
         setIsRecording(false);
         setIsListening(false);
-        const full = (finalTranscript + ' ' + interimTranscript).trim();
-        const result = (full || finalTranscript).trim();
+        // Use refs instead of state here to avoid stale closures on first run
+        const full = (finalRef.current + ' ' + interimRef.current).trim();
+        const result = full.trim();
         if (result) {
           onTranscript(result);
           setOpen(false);
