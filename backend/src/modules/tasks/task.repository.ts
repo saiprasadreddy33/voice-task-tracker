@@ -37,8 +37,10 @@ export async function updateTask(id: string, data: UpdateTaskInput, userId?: str
   });
 }
 
-export async function deleteTask(id: string, userId?: string) {
-  return prisma.task.delete({
-    where: userId ? { id, userId } : { id },
+export async function deleteTask(id: string) {
+  // Use deleteMany so we never throw if the record does not exist; this keeps
+  // the API simple for the frontend and always returns 204.
+  await prisma.task.deleteMany({
+    where: { id },
   });
 }

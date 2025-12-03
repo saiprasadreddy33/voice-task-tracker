@@ -120,7 +120,24 @@ export function useDeleteTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => apiClient.delete<void>(`/api/tasks/${id}`),
-    onSuccess: () => {
+    // Optimistic delete so the task disappears immediately from the UI
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueryData<UiTask[]>(['tasks']);
+      if (previous) {
+        queryClient.setQueryData<UiTask[]>(
+          ['tasks'],
+          previous.filter((t) => t.id === id ? false : true),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _id, context: any) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['tasks'], context.previous);
+      }
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })

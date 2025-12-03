@@ -61,6 +61,6 @@ export async function deleteTask(req: FastifyRequest, reply: FastifyReply) {
   const { id } = req.params as { id: string };
   const userId = getUserIdFromRequest(req);
   if (userId) await ensureUserExists(userId);
-  await taskRepo.deleteTask(id, userId);
+  await taskRepo.deleteTask(id);
   return reply.status(204).send();
 }

@@ -19,13 +19,20 @@ function getOrCreateUserId(): string | undefined {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const userId = getOrCreateUserId();
+
+  const headers: Record<string, string> = {
+    ...(userId ? { 'x-user-id': userId } : {}),
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+
+  // Only send JSON content-type when there is a body.
+  if (options?.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(userId ? { 'x-user-id': userId } : {}),
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
 
   if (!res.ok) {
@@ -33,7 +40,18 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(`API error ${res.status}: ${body}`);
   }
 
-  return res.json() as Promise<T>;
+  // Some endpoints (e.g. DELETE) return 204 No Content. In that case, skip JSON parsing.
+  if (res.status === 204 || res.status === 205) {
+    return undefined as T;
+  }
+
+  // If there is no body, also skip JSON parsing.
+  const text = await res.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 export const apiClient = {
