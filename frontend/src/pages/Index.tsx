@@ -62,73 +62,89 @@ const Index = () => {
   };
 
   const handleVoiceConfirm = async (confirmedTask: ParsedTask) => {
-    // map frontend ParsedTask -> backend CreateTaskInput
     const payload: any = parsedTaskToCreatePayload(confirmedTask);
 
     try {
       setIsCreatingFromVoice(true);
-        await createTaskMutation.mutateAsync(payload);
-        toast({ title: 'Success', description: 'Task created successfully' });
-        setVoiceReviewOpen(false);
-        setParsedTask(null);
-        setTranscript('');
+      await createTaskMutation.mutateAsync(payload);
+      toast({ title: 'Success', description: 'Task created successfully' });
+      setVoiceReviewOpen(false);
+      setParsedTask(null);
+      setTranscript('');
     } catch (error: any) {
       const message = error?.message || (typeof error === 'string' ? error : 'Failed to create task');
       toast({ title: 'Error', description: message, variant: 'destructive' });
-        setVoiceReviewOpen(false); // Ensure voice dialog state resets
+      setVoiceReviewOpen(false);
     } finally {
       setIsCreatingFromVoice(false);
     }
   };
 
-  const updateTask = useCallback(async (id: string, updates: Partial<any>) => {
-    try {
-      const payload: any = { ...updates };
-      if (updates.status) {
-        payload.status = updates.status === 'in_progress' ? 'IN_PROGRESS' : updates.status === 'done' ? 'DONE' : 'PENDING';
+  const updateTask = useCallback(
+    async (id: string, updates: Partial<any>) => {
+      try {
+        const payload: any = { ...updates };
+        if (updates.status) {
+          payload.status =
+            updates.status === 'in_progress'
+              ? 'IN_PROGRESS'
+              : updates.status === 'done'
+              ? 'DONE'
+              : 'PENDING';
+        }
+        if (updates.priority) payload.priority = (updates.priority || 'medium').toUpperCase();
+        if ((updates as any).dueDate) payload.dueDate = (updates as any).dueDate;
+        await updateTaskMutation.mutateAsync({ id, data: payload });
+        toast({ title: 'Success', description: 'Task updated successfully' });
+      } catch (error: any) {
+        toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
       }
-      if (updates.priority) payload.priority = (updates.priority || 'medium').toUpperCase();
-      if ((updates as any).dueDate) payload.dueDate = (updates as any).dueDate;
-      await updateTaskMutation.mutateAsync({ id, data: payload });
-      toast({ title: 'Success', description: 'Task updated successfully' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
-    }
-  }, [updateTaskMutation, toast]);
+    },
+    [updateTaskMutation, toast],
+  );
 
-  const deleteTask = useCallback(async (id: string) => {
-    try {
-      await deleteTaskMutation.mutateAsync(id);
-      toast({ title: 'Success', description: 'Task deleted successfully' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
-      throw error;
-    }
-  }, [deleteTaskMutation, toast]);
+  const deleteTask = useCallback(
+    async (id: string) => {
+      try {
+        await deleteTaskMutation.mutateAsync(id);
+        toast({ title: 'Success', description: 'Task deleted successfully' });
+      } catch (error: any) {
+        toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
+        throw error;
+      }
+    },
+    [deleteTaskMutation, toast],
+  );
 
   const handleEdit = useCallback((t: Task) => {
     setEditingTask(t);
     setDialogOpen(true);
   }, []);
 
-  const handleStatusChange = useCallback((id: string, newStatus: Task['status']) => {
-    // Optimistic local update so the column changes immediately when using the menu
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
-    // Start per-card/global loader right away
-    setSavingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const handleStatusChange = useCallback(
+    (id: string, newStatus: Task['status']) => {
+      // Optimistic local update so the column changes immediately when using the menu
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+      // Start per-card/global loader right away
+      setSavingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
 
-    void (async () => {
-      try {
-        await updateTask(id, { status: newStatus });
-      } finally {
-        setSavingIds((prev) => prev.filter((sid) => sid !== id));
-      }
-    })();
-  }, [updateTask]);
+      void (async () => {
+        try {
+          await updateTask(id, { status: newStatus });
+        } finally {
+          setSavingIds((prev) => prev.filter((sid) => sid !== id));
+        }
+      })();
+    },
+    [updateTask],
+  );
 
-  const handleDeleteCallback = useCallback((id: string) => {
-    return deleteTask(id);
-  }, [deleteTask]);
+  const handleDeleteCallback = useCallback(
+    (id: string) => {
+      return deleteTask(id);
+    },
+    [deleteTask],
+  );
 
   const handleSaveTask = async (taskData: Partial<Task>) => {
     if (editingTask) {
@@ -160,18 +176,23 @@ const Index = () => {
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return effectiveTasks.filter((task) => {
-      const matchesSearch = task.title.toLowerCase().includes(q) || (task.description?.toLowerCase().includes(q) ?? false);
+      const matchesSearch =
+        task.title.toLowerCase().includes(q) ||
+        (task.description?.toLowerCase().includes(q) ?? false);
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
   }, [effectiveTasks, searchQuery, statusFilter, priorityFilter]);
 
-  const tasksByStatus = useMemo(() => ({
-    to_do: filteredTasks.filter((t) => t.status === 'to_do'),
-    in_progress: filteredTasks.filter((t) => t.status === 'in_progress'),
-    done: filteredTasks.filter((t) => t.status === 'done'),
-  }), [filteredTasks]);
+  const tasksByStatus = useMemo(
+    () => ({
+      to_do: filteredTasks.filter((t) => t.status === 'to_do'),
+      in_progress: filteredTasks.filter((t) => t.status === 'in_progress'),
+      done: filteredTasks.filter((t) => t.status === 'done'),
+    }),
+    [filteredTasks],
+  );
 
   const onDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -188,9 +209,7 @@ const Index = () => {
     // 2) Show saving indicator for this card immediately on drop
     setSavingIds((prev) => (prev.includes(draggableId) ? prev : [...prev, draggableId]));
 
-    // 3) Save in the background using the existing updateTask helper (handles
-    //    backend enum mapping + toasts). When it finishes (success or error),
-    //    clear the saving indicator.
+    // 3) Save in the background
     try {
       await updateTask(draggableId, { status: newStatus });
     } finally {
@@ -198,7 +217,7 @@ const Index = () => {
     }
   };
 
-  const columnTitles = {
+  const columnTitles: Record<Task['status'], string> = {
     to_do: 'To Do',
     in_progress: 'In Progress',
     done: 'Done',
@@ -214,149 +233,192 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
-      {/* Global saving indicator when any mutation is in-flight (visible during DnD save) */}
+      {/* Global saving indicator */}
       {savingIds.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-card/95 border border-border/60 px-3 py-2 rounded-md shadow-lg backdrop-blur-md">
+        <div className="fixed top-3 right-3 z-50 flex items-center gap-2 bg-card/95 border border-border/60 px-3 py-2 rounded-md shadow-lg backdrop-blur-md">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm">Saving changes…</span>
+          <span className="text-xs sm:text-sm">Saving changes…</span>
         </div>
       )}
+
       {/* Animated background effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-radial from-primary/10 to-transparent blur-3xl animate-pulse-glow" />
-        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-gradient-radial from-accent/10 to-transparent blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
+        <div
+          className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-gradient-radial from-accent/10 to-transparent blur-3xl animate-pulse-glow"
+          style={{ animationDelay: '1s' }}
+        />
       </div>
 
       {/* Header */}
-      <header className="border-b border-border/30 backdrop-blur-xl bg-card/40 sticky top-0 z-10 shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-6 animate-fade-in">
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-2 tracking-tight">Voice Task Tracker</h1>
-              <p className="text-muted-foreground">Speak your tasks into existence ✨</p>
+      <header className="border-b border-border/30 backdrop-blur-xl bg-card/60 sticky top-0 z-10 shadow-lg">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-3 sm:mb-4 animate-fade-in">
+            <div className="text-center md:text-left">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-1 sm:mb-2 tracking-tight">
+                Voice Task Tracker
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Speak your tasks into existence ✨
+              </p>
             </div>
 
-            <div className="flex gap-3">
-              <VoiceInput onTranscript={handleVoiceTranscript} isProcessing={isProcessingVoice || isCreatingFromVoice} />
-              <Button onClick={() => { setEditingTask(null); setDialogOpen(true); }} size="lg">
-                <Plus className="mr-2 h-5 w-5" />
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto sm:justify-end">
+              <div className="w-full sm:w-auto">
+                <VoiceInput
+                  onTranscript={handleVoiceTranscript}
+                  isProcessing={isProcessingVoice || isCreatingFromVoice}
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  setEditingTask(null);
+                  setDialogOpen(true);
+                }}
+                size="default"
+                className="w-full sm:w-auto"
+              >
+                <Plus className="mr-2 h-4 w-4" />
                 Add Task
               </Button>
             </div>
           </div>
 
           {/* Filters */}
-          <div className="flex gap-3 flex-wrap animate-slide-up">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="flex flex-col gap-3 sm:gap-2 md:flex-row md:flex-wrap animate-slide-up">
+            <div className="relative w-full md:flex-1 min-w-[200px] md:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-input/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all"
+                className="pl-10 bg-input/60 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all text-sm"
               />
             </div>
 
-            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-              <SelectTrigger className="w-[150px] bg-input/50 backdrop-blur-sm border-border/50">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="to_do">To Do</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="done">Done</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row gap-2 md:gap-2">
+              <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+                <SelectTrigger className="w-full sm:w-[150px] bg-input/60 backdrop-blur-sm border-border/50 text-xs sm:text-sm">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="to_do">To Do</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="done">Done</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={priorityFilter} onValueChange={(v: any) => setPriorityFilter(v)}>
-              <SelectTrigger className="w-[150px] bg-input/50 backdrop-blur-sm border-border/50">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priority</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={priorityFilter} onValueChange={(v: any) => setPriorityFilter(v)}>
+                <SelectTrigger className="w-full sm:w-[150px] bg-input/60 backdrop-blur-sm border-border/50 text-xs sm:text-sm">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </header>
 
-            {/* Kanban Board */}
-            <main className="relative container mx-auto px-4 py-8">
-              {/* Overlay spinner shown while parsing + creating from voice */}
-              {(isProcessingVoice || isCreatingFromVoice) && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-                  <div className="flex flex-col items-center gap-3 rounded-lg bg-card/95 border border-border/60 p-6 backdrop-blur-md">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <div className="text-sm text-foreground/90">Processing voice input…</div>
-                  </div>
-                </div>
-              )}
+      {/* Kanban Board */}
+      <main className="relative max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+        {/* Overlay spinner shown while parsing + creating from voice */}
+        {(isProcessingVoice || isCreatingFromVoice) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+            <div className="flex flex-col items-center gap-2 rounded-lg bg-card/95 border border-border/60 p-4 sm:p-6 backdrop-blur-md w-full max-w-xs sm:max-w-sm">
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary" />
+              <div className="text-xs sm:text-sm text-foreground/90">
+                Processing voice input…
+              </div>
+            </div>
+          </div>
+        )}
+
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Object.entries(tasksByStatus).map(([status, statusTasks], idx) => (
-            <Droppable droppableId={status} key={status}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`space-y-4 animate-fade-in ${snapshot.isDraggingOver ? 'ring-2 ring-primary/60 bg-primary/5' : ''}`}
-                    style={{ animationDelay: `${idx * 0.1}s` }}
-                  >
-                    <div className="flex items-center justify-between backdrop-blur-sm bg-card/40 rounded-xl p-3 border border-border/30">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          status === 'to_do' ? 'bg-status-todo' :
-                          status === 'in_progress' ? 'bg-status-progress' :
-                          'bg-status-done'
-                        }`} />
-                        <h2 className="text-lg font-semibold text-foreground">
-                          {columnTitles[status as Task['status']]}
-                        </h2>
-                      </div>
-                      <span className="text-sm text-muted-foreground bg-muted/50 px-3 py-1 rounded-full backdrop-blur-sm">
-                        {statusTasks.length}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3 min-h-[200px]">
-                      {statusTasks.map((task, taskIdx) => (
-                        <Draggable draggableId={String(task.id)} index={taskIdx} key={task.id}>
-                          {(prov, snap) => (
-                              <div
-                              ref={prov.innerRef}
-                              {...prov.draggableProps}
-                              {...prov.dragHandleProps}
-                              className={`${snap.isDragging ? 'scale-105 shadow-lg' : 'animate-slide-up'}`}
-                              style={{ animationDelay: `${taskIdx * 0.05}s` }}
-                            >
-                              <TaskCard
-                                task={task}
-                                onEdit={handleEdit}
-                                onDelete={handleDeleteCallback}
-                                onStatusChange={handleStatusChange}
-                                isSaving={savingIds.includes(String(task.id))}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-
-                      {provided.placeholder}
-
-                      {statusTasks.length === 0 && (
-                        <div className="text-center py-12 text-muted-foreground text-sm backdrop-blur-sm bg-card/20 rounded-xl border border-border/20 border-dashed">
-                          <div className="opacity-50">No tasks yet</div>
+          <div className="overflow-x-auto pb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-[280px] md:min-w-0">
+              {Object.entries(tasksByStatus).map(([status, statusTasks], idx) => (
+                <Droppable droppableId={status} key={status}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`space-y-3 sm:space-y-4 animate-fade-in ${
+                        snapshot.isDraggingOver
+                          ? 'ring-2 ring-primary/60 bg-primary/5'
+                          : 'bg-card/10'
+                      } rounded-xl p-2 sm:p-3`}
+                      style={{ animationDelay: `${idx * 0.1}s` }}
+                    >
+                      <div className="flex items-center justify-between backdrop-blur-sm bg-card/60 rounded-lg p-2 sm:p-3 border border-border/30">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              status === 'to_do'
+                                ? 'bg-status-todo'
+                                : status === 'in_progress'
+                                ? 'bg-status-progress'
+                                : 'bg-status-done'
+                            }`}
+                          />
+                          <h2 className="text-sm sm:text-base font-semibold text-foreground">
+                            {columnTitles[status as Task['status']]}
+                          </h2>
                         </div>
-                      )}
+                        <span className="text-xs sm:text-sm text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                          {statusTasks.length}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 sm:space-y-3 min-h-[160px] sm:min-h-[200px]">
+                        {statusTasks.map((task, taskIdx) => (
+                          <Draggable
+                            draggableId={String(task.id)}
+                            index={taskIdx}
+                            key={task.id}
+                          >
+                            {(prov, snap) => (
+                              <div
+                                ref={prov.innerRef}
+                                {...prov.draggableProps}
+                                {...prov.dragHandleProps}
+                                className={`${
+                                  snap.isDragging
+                                    ? 'scale-[1.02] shadow-lg'
+                                    : 'animate-slide-up'
+                                }`}
+                                style={{ animationDelay: `${taskIdx * 0.05}s` }}
+                              >
+                                <TaskCard
+                                  task={task}
+                                  onEdit={handleEdit}
+                                  onDelete={handleDeleteCallback}
+                                  onStatusChange={handleStatusChange}
+                                  isSaving={savingIds.includes(String(task.id))}
+                                />
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+
+                        {provided.placeholder}
+
+                        {statusTasks.length === 0 && (
+                          <div className="text-center py-8 sm:py-10 text-muted-foreground text-xs sm:text-sm backdrop-blur-sm bg-card/20 rounded-xl border border-border/20 border-dashed">
+                            <div className="opacity-60">No tasks yet</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </Droppable>
-            ))}
+                  )}
+                </Droppable>
+              ))}
+            </div>
           </div>
         </DragDropContext>
       </main>

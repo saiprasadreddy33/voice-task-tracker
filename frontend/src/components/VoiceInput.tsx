@@ -116,8 +116,8 @@ export const VoiceInput = ({ onTranscript, isProcessing }: VoiceInputProps) => {
 
   return (
     <div>
-      <Button onClick={() => setOpen(true)} size="lg">
-        <Mic className="mr-2 h-5 w-5" />
+      <Button onClick={() => setOpen(true)} size="default" className="w-full sm:w-auto">
+        <Mic className="mr-2 h-4 w-4" />
         Voice Input
       </Button>
 
