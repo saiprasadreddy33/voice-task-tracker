@@ -101,11 +101,12 @@ export const VoiceReviewDialog = ({
                 <SelectTrigger id="voice-priority" className="bg-input/50 backdrop-blur-sm border-border/50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="backdrop-blur-xl bg-card/95 border-border/50">
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
+            <SelectContent className="backdrop-blur-xl bg-card/95 border-border/50">
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+            </SelectContent>
               </Select>
             </div>
 

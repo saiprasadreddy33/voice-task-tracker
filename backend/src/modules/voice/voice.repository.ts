@@ -66,9 +66,14 @@ export function parseVoiceInput(transcript: string) {
 
   // Priority extraction
   const priorityMap = [
-    { regex: /\b(critical|urgent|high priority|asap)\b/i, value: 'HIGH' },
-    { regex: /\b(low priority|low)\b/i, value: 'LOW' },
-    { regex: /\b(medium priority|normal)\b/i, value: 'MEDIUM' },
+    // Critical
+    { regex: /\b(critical|severe|blocker|production issue|prod issue)\b/i, value: 'CRITICAL' },
+    // High
+    { regex: /\b(urgent|high priority|top priority|very important|asap|immediately)\b/i, value: 'HIGH' },
+    // Low
+    { regex: /\b(low priority|low|nice to have|whenever)\b/i, value: 'LOW' },
+    // Medium / normal
+    { regex: /\b(medium priority|normal|standard)\b/i, value: 'MEDIUM' },
   ];
   for (const { regex, value } of priorityMap) {
     if (regex.test(transcript)) {
@@ -79,8 +84,8 @@ export function parseVoiceInput(transcript: string) {
   if (!result.priority) result.priority = 'MEDIUM';
 
   // Status extraction
-  if (/\b(done|completed|finish(ed)?)\b/i.test(transcript)) result.status = 'DONE';
-  else if (/\b(in progress|doing|working)\b/i.test(transcript)) result.status = 'IN_PROGRESS';
+  if (/\b(done|completed|finish(?:ed)?|closed|resolved)\b/i.test(transcript)) result.status = 'DONE';
+  else if (/\b(in progress|doing|working|started|ongoing|currently working)\b/i.test(transcript)) result.status = 'IN_PROGRESS';
   else result.status = 'PENDING';
 
   // Due date extraction

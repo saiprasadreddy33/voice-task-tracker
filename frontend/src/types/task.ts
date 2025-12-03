@@ -12,7 +12,7 @@ export interface Task {
 export interface ParsedTask {
   title: string;
   description: string | null;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'critical';
   dueDate: string | null;
   status: 'to_do';
 }

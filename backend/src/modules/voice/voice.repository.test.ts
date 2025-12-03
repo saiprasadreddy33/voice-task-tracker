@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseVoiceInput } from './voice.repository.js';
 
-describe('parseVoiceInput', () => {
+describe('parseVoiceInput (basic)', () => {
   it('parses priority and due date from sentence', () => {
     const transcript = "Remind me to send the project proposal to the client by next Wednesday, it's high priority";
     const result = parseVoiceInput(transcript);
@@ -40,7 +40,7 @@ describe('deriveTitleFromTranscript', () => {
   });
 });
 
-describe('parseVoiceInput', () => {
+describe('parseVoiceInput (advanced)', () => {
   it('extracts priority and due date', () => {
     const transcript = 'Create a high priority task to review the PR by tomorrow evening';
     const result = parseVoiceInput(transcript);
@@ -62,5 +62,30 @@ describe('parseVoiceInput', () => {
     const result = parseVoiceInput(transcript);
     expect(result.priority).toBe('MEDIUM');
     expect(result.status).toBe('PENDING');
+  });
+
+  it('detects CRITICAL priority separately from HIGH', () => {
+    const transcript = 'Critical production issue in checkout flow, fix this now';
+    const result = parseVoiceInput(transcript);
+    expect(result.priority).toBe('CRITICAL');
+    expect(result.status).toBe('PENDING');
+  });
+
+  it('understands status phrasing variations for in progress and done', () => {
+    const t1 = parseVoiceInput('I am currently working on the onboarding flow, high priority');
+    expect(t1.status).toBe('IN_PROGRESS');
+
+    const t2 = parseVoiceInput('The migration was finished yesterday, low priority now');
+    expect(t2.status).toBe('DONE');
+  });
+
+  it('parses due dates in phrases like "due by Friday", "by Friday", and "before Friday"', () => {
+    const r1 = parseVoiceInput('Submit the expense report, high priority, due by Friday');
+    const r2 = parseVoiceInput('Book the flights by Friday');
+    const r3 = parseVoiceInput('Prepare the slides before Friday');
+
+    expect(r1.dueDate).not.toBeNull();
+    expect(r2.dueDate).not.toBeNull();
+    expect(r3.dueDate).not.toBeNull();
   });
 });

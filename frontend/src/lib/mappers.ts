@@ -2,10 +2,17 @@ import type { ParsedTask, Task } from '@/types/task';
 
 // Convert backend parsed response into frontend ParsedTask
 export function parsedResponseToParsedTask(parsed: any, voiceTranscript: string): ParsedTask {
+  const backendPriority = (parsed.priority || 'MEDIUM').toLowerCase();
+  let priority: ParsedTask['priority'];
+  if (backendPriority === 'low') priority = 'low';
+  else if (backendPriority === 'high') priority = 'high';
+  else if (backendPriority === 'critical') priority = 'critical';
+  else priority = 'medium';
+
   return {
     title: parsed.title || (voiceTranscript.split('.').slice(0, 1).join('') || voiceTranscript).trim(),
     description: parsed.description ?? null,
-    priority: (parsed.priority || 'MEDIUM').toLowerCase() === 'low' ? 'low' : (parsed.priority || 'MEDIUM').toLowerCase() === 'high' ? 'high' : 'medium',
+    priority,
     dueDate: parsed.dueDate || null,
     status: parsed.status === 'DONE' ? 'done' : parsed.status === 'IN_PROGRESS' ? 'in_progress' : 'to_do',
   };
